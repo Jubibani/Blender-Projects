@@ -4,7 +4,6 @@ extends CharacterBody3D
 const SPEED = 5.0
 const JUMP_VELOCITY = 4.5
 
-
 func _ready():
 	
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -14,10 +13,9 @@ var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 func _input(event):
 	
 	if Input.is_action_pressed("escape"):
-		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	if event is InputEventMouseMotion:
+		get_tree().quit()
+		
+	if event is InputEventMouseMotion :
 		var look_sensitivity = 0.5
 		rotate_y(deg_to_rad(-event.relative.x * look_sensitivity))
 		$head.rotate_x(deg_to_rad(-event.relative.y * look_sensitivity))
