@@ -1,6 +1,6 @@
-[gd_scene load_steps=9 format=3 uid="uid://cbh2keavj1nip"]
+[gd_scene load_steps=6 format=3 uid="uid://cbh2keavj1nip"]
 
-[ext_resource type="Script" path="res://scenes/scripts/player.gd" id="1_xb0uf"]
+[ext_resource type="PackedScene" uid="uid://boyqv7nm80kyo" path="res://scenes/player.tscn" id="1_cvg30"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_u2bcw"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -18,14 +18,6 @@ glow_enabled = true
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6np2m"]
 albedo_color = Color(0.229109, 0.374856, 0.121952, 0.72549)
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_4ld3l"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spx4d"]
-albedo_color = Color(0.45098, 0.27451, 0.835294, 1)
-
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_14kax"]
-material = SubResource("StandardMaterial3D_spx4d")
-
 [node name="world" type="Node3D"]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
@@ -40,22 +32,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.891051, -2.99252)
 material_override = SubResource("StandardMaterial3D_6np2m")
 use_collision = true
 size = Vector3(100, 1, 100)
-
-[node name="player" type="CharacterBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
-script = ExtResource("1_xb0uf")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="player"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.006253, 0)
-shape = SubResource("CapsuleShape3D_4ld3l")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="player/CollisionShape3D"]
-mesh = SubResource("CapsuleMesh_14kax")
-
-[node name="head" type="Node3D" parent="player"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.780758, 0)
-
-[node name="Camera3D" type="Camera3D" parent="player/head"]
 
 [node name="CSGCombiner3D" type="CSGCombiner3D" parent="."]
 
@@ -74,3 +50,6 @@ size = Vector3(9.74554, 7.12445, 4.51123)
 [node name="box4" type="CSGBox3D" parent="CSGCombiner3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.60556, 4.55852, -17.8107)
 size = Vector3(9.74554, 7.12445, 4.51123)
+
+[node name="Player" parent="." instance=ExtResource("1_cvg30")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.52744, 0)

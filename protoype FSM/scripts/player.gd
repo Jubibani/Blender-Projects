@@ -1,4 +1,4 @@
-extends CharacterBody3D
+class_name Player extends CharacterBody3D
 
 @onready var head := $head/Camera3D
 const SPEED = 5.0

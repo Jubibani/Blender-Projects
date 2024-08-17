@@ -29,9 +29,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.780758, 0)
 
 [node name="Camera3D" type="Camera3D" parent="head"]
 
-[node name="StateMachine" type="Node" parent="." node_paths=PackedStringArray("initial_state")]
+[node name="StateMachine" type="Node" parent="."]
 script = ExtResource("2_jjxdd")
-initial_state = NodePath("Standing")
 
 [node name="Standing" type="Node" parent="StateMachine"]
 script = ExtResource("3_6f2cd")
