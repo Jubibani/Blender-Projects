@@ -1,59 +1,53 @@
-class_name Player extends CharacterBody3D
+extends RigidBody3D
 
-@onready var head := $head/Camera3D
-const SPEED = 5.0
-const JUMP_VELOCITY = 4.5
-
+@onready var head = $head/Camera3D
+# Called when the node enters the scene tree for the first time.
 func _ready():
+	pass
 	
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-# Get the gravity from the project settings to be synced with RigidBody nodes.
-var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta):
+	var move_speed := 1000.0
+	var max_speed := 10.0
+	var jump_strength := 1000.0
+	var force := Vector3.ZERO
+	
+	if Input.is_action_pressed("forward"):
+		force += -transform.basis.z * move_speed * delta
+	if Input.is_action_pressed("backward"):
+		force += transform.basis.z * move_speed * delta
+	if Input.is_action_pressed("left"):
+		force += -transform.basis.x * move_speed * delta
+	if Input.is_action_pressed("right"):
+		force += transform.basis.x * move_speed * delta
+	
+	if Input.is_action_pressed("jump"):
+		force += transform.basis.y * jump_strength * delta
+	apply_central_force(force)
+	
+	#clamping
+	move_speed = linear_velocity.length()
+	move_speed = clamp(move_speed,0,max_speed)
+	
+	#limit
+	if linear_velocity.length() > max_speed:
+		linear_velocity = linear_velocity.normalized() * max_speed
+	
+	
+	print("move speed: ", move_speed)
+	print("max speed: ", max_speed)
 
 func _input(event):
-	
-	if Input.is_action_pressed("escape"):
-		get_tree().quit()
-		
-	if event is InputEventMouseMotion :
+	if event is InputEventScreenDrag:
 		var look_sensitivity = 0.5
 		rotate_y(deg_to_rad(-event.relative.x * look_sensitivity))
 		$head.rotate_x(deg_to_rad(-event.relative.y * look_sensitivity))
-
+		
 		var head_rotation = $head.rotation_degrees
 		head_rotation.x -= event.relative.y * look_sensitivity
 		head_rotation.x = clamp(head_rotation.x, -90, 90)
-		$head.rotation_degrees = head_rotation 
-
-func _physics_process(delta):
-	# Add the gravity.
-	if not is_on_floor():
-		velocity.y -= gravity * delta
-
-	# Handle jump.
-	if Input.is_action_pressed("ui_accept") and is_on_floor():
-		velocity.y = JUMP_VELOCITY
-
-	# Get the input direction and handle the movement/deceleration.
-	# As good practice, you should replace UI actions with custom gameplay actions.
-	var input_dir = Input.get_vector("left", "right", "forward", "backward")
-	var direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-	if direction:
-		velocity.x = direction.x * SPEED
-		velocity.z = direction.z * SPEED
-	else:
-		velocity.x = move_toward(velocity.x, 0, SPEED)
-		velocity.z = move_toward(velocity.z, 0, SPEED)
-	if Input.is_action_just_pressed("forward"):
-		print("forward")
+		$head.rotation_degrees = head_rotation
 		
-	if Input.is_action_just_pressed("backward"):
-		print("backward")
 		
-	if Input.is_action_just_pressed("left"):
-		print("left")
 	
-	if Input.is_action_just_pressed("right"):
-		print("right")
-	
-	move_and_slide()
