@@ -403,30 +403,51 @@ async function addRow(table, headerRow) {
         let cell;
 
         if (index === 0) {
-            cell = createActionCell(row, groupId); // Pass groupId to createActionCell
-        } else if (headerText === 'Start Date' || headerText === 'Due Date') {
-            cell = document.createElement('td');
-            const dateInput = document.createElement('input');
-            dateInput.type = 'date';
-            cell.appendChild(dateInput);
-            dateInput.addEventListener('change', () => {
-                rowData.cells[headerText] = dateInput.value;
-            });
+            cell = createActionCell(row, groupId);
         } else {
             cell = createCell(headerText);
+            // Initialize empty values in rowData
+            rowData.cells[headerText] = '';
         }
-
         row.appendChild(cell);
-        
-        if (index > 0) {
-            rowData.cells[headerText] = headerText === 'Upload File' ? null : '';
+    });
+
+    // Save to Firestore first
+    const docRef = await saveRowData(groupId, rowData);
+    row.dataset.rowId = docRef.id; // Store the row ID for later use
+
+    // Add event listeners to all editable cells
+    row.querySelectorAll('td').forEach((cell, index) => {
+        if (index > 0) { // Skip action cell
+            addCellEventListeners(cell, headerRow.cells[index].textContent.trim(), row);
         }
     });
 
     table.appendChild(row);
-    const docRef = await saveRowData(groupId, rowData);
-    row.dataset.rowId = docRef.id; // Store the row ID for later use
     return row;
+}
+
+//! helper for renaming or creating item rows
+function addCellEventListeners(cell, headerText, row) {
+    if (headerText === 'Status') {
+        const select = cell.querySelector('select');
+        if (select) {
+            select.addEventListener('change', () => saveRowChanges(row));
+        }
+    } else if (headerText === 'Start Date' || headerText === 'Due Date') {
+        const dateInput = cell.querySelector('input[type="date"]');
+        if (dateInput) {
+            dateInput.addEventListener('change', () => saveRowChanges(row));
+        }
+    } else if (headerText === 'Upload File') {
+        const fileInput = cell.querySelector('input[type="file"]');
+        if (fileInput) {
+            fileInput.addEventListener('change', handleFileUpload);
+        }
+    } else {
+        cell.addEventListener('input', () => saveRowChanges(row));
+        cell.addEventListener('blur', () => saveRowChanges(row));
+    }
 }
 
 //! Update was not implemented bro
@@ -438,9 +459,10 @@ async function updateRowData(groupId, rowId, cells) {
             cells: cells,
             updatedAt: new Date().toISOString()
         });
-        console.log('Row updated successfully');
+        console.log('Row updated successfully:', cells);
     } catch (error) {
         console.error('Error updating row:', error);
+        throw error;
     }
 }
 
@@ -501,9 +523,7 @@ async function saveRowData(groupId, rowData) {
 }
 
 //! add Updates
-async function saveRowChanges(element) {
-    const cell = element.tagName === 'TD' ? element : element.closest('td');
-    const row = cell.closest('tr');
+async function saveRowChanges(row) {
     const table = row.closest('table');
     const groupId = table.dataset.id;
     const rowId = row.dataset.rowId;
@@ -517,15 +537,33 @@ async function saveRowChanges(element) {
     const headerRow = table.rows[0];
     
     Array.from(row.cells).forEach((cell, index) => {
+        if (index === 0) return; // Skip action column
+        
         const headerText = headerRow.cells[index].textContent.trim();
-        if (index > 0) { // Skip the action column
-            cells[headerText] = cell.querySelector('input, select') 
-                ? cell.querySelector('input, select').value 
-                : cell.textContent.trim();
+        let value;
+
+        // Handle different types of inputs
+        if (headerText === 'Status') {
+            const select = cell.querySelector('select');
+            value = select ? select.value : '';
+        } else if (headerText === 'Start Date' || headerText === 'Due Date') {
+            const dateInput = cell.querySelector('input[type="date"]');
+            value = dateInput ? dateInput.value : '';
+        } else if (headerText === 'Upload File') {
+            value = cell.dataset.fileUrl || '';
+        } else {
+            value = cell.textContent.trim();
         }
+
+        cells[headerText] = value;
     });
 
-    await updateRowData(groupId, rowId, cells);
+    try {
+        await updateRowData(groupId, rowId, cells);
+        console.log('Row updated successfully');
+    } catch (error) {
+        console.error('Error updating row:', error);
+    }
 }
 // Function to Create Cell
 //! Implement Update 
@@ -535,24 +573,22 @@ function createCell(headerText) {
     if (headerText === 'Start Date' || headerText === 'Due Date') {
         return createDateCell();
     } else if (headerText === 'Numbers') {
-        const input = createInput('text', 'Enter Value');
-        input.addEventListener('change', () => saveRowChanges(input));
-        cell.appendChild(input);
+        cell.contentEditable = true;
+        cell.addEventListener('input', () => {
+            // Only allow numbers
+            cell.textContent = cell.textContent.replace(/[^0-9]/g, '');
+        });
     } else if (headerText === 'Status') {
         const select = createSelect(['To-do', 'In Progress', 'Done']);
-        select.addEventListener('change', () => saveRowChanges(select));
         cell.appendChild(select);
     } else if (headerText === 'Key Persons') {
-        const input = createInput('email');
-        input.addEventListener('change', () => saveRowChanges(input));
-        cell.appendChild(input);
+        cell.contentEditable = true;
     } else if (headerText === 'Upload File') {
         const fileInput = createInput('file');
         fileInput.addEventListener('change', handleFileUpload);
         cell.appendChild(fileInput);
     } else {
         cell.contentEditable = true;
-        cell.addEventListener('blur', () => saveRowChanges(cell));
     }
 
     return cell;
