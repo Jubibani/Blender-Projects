@@ -135,9 +135,10 @@ document.addEventListener('click', (e) => {
     }
 });
 
-
+//!Implement Update for storing
 function populateRow(table, rowData) {
     const row = document.createElement('tr');
+    row.dataset.rowId = rowData.id; //! Store the row ID
     const headerRow = table.rows[0];
 
     Array.from(headerRow.cells).forEach((header, index) => {
@@ -182,6 +183,7 @@ function createTable(container, groupId) {
 
 // Function to Create Header Row
 //? Handles the Firebase Deletion [group]
+//? Implement Update Feature
 function createHeaderRow(table, groupId) {
     const headerRow = document.createElement('tr');
 
@@ -195,6 +197,21 @@ function createHeaderRow(table, groupId) {
     const dropdownMenu = document.createElement('div');
     dropdownMenu.className = 'dropdown-menu';
     dropdownMenu.style.display = 'none';
+
+    //!Implement Updates
+
+    const groupNameHeader = createHeaderCell('New Group', '', true);
+    groupNameHeader.contentEditable = true;
+    groupNameHeader.addEventListener('blur', async () => {
+        try {
+            const groupRef = doc(db, 'groups', groupId);
+            await updateDoc(groupRef, {
+                name: groupNameHeader.textContent.trim()
+            });
+        } catch (error) {
+            console.error('Error updating group name:', error);
+        }
+    });
 
     // Add "Delete Group" Option with proper event handling
     const deleteGroupOption = document.createElement('div');
@@ -412,6 +429,21 @@ async function addRow(table, headerRow) {
     return row;
 }
 
+//! Update was not implemented bro
+async function updateRowData(groupId, rowId, cells) {
+    try {
+        const groupRef = doc(db, 'groups', groupId);
+        const rowRef = doc(collection(groupRef, 'contents'), rowId);
+        await updateDoc(rowRef, {
+            cells: cells,
+            updatedAt: new Date().toISOString()
+        });
+        console.log('Row updated successfully');
+    } catch (error) {
+        console.error('Error updating row:', error);
+    }
+}
+
 //? First, keep  saveRow function to collect the data [2]
 function saveRow(groupId, row) {
     console.log('Starting saveRow with groupId:', groupId);
@@ -467,28 +499,66 @@ async function saveRowData(groupId, rowData) {
         throw error;
     }
 }
+
+//! add Updates
+async function saveRowChanges(element) {
+    const cell = element.tagName === 'TD' ? element : element.closest('td');
+    const row = cell.closest('tr');
+    const table = row.closest('table');
+    const groupId = table.dataset.id;
+    const rowId = row.dataset.rowId;
+    
+    if (!groupId || !rowId) {
+        console.error('Missing groupId or rowId');
+        return;
+    }
+
+    const cells = {};
+    const headerRow = table.rows[0];
+    
+    Array.from(row.cells).forEach((cell, index) => {
+        const headerText = headerRow.cells[index].textContent.trim();
+        if (index > 0) { // Skip the action column
+            cells[headerText] = cell.querySelector('input, select') 
+                ? cell.querySelector('input, select').value 
+                : cell.textContent.trim();
+        }
+    });
+
+    await updateRowData(groupId, rowId, cells);
+}
 // Function to Create Cell
+//! Implement Update 
 function createCell(headerText) {
     const cell = document.createElement('td');
 
     if (headerText === 'Start Date' || headerText === 'Due Date') {
         return createDateCell();
     } else if (headerText === 'Numbers') {
-        cell.appendChild(createInput('text', 'Enter Value'));
+        const input = createInput('text', 'Enter Value');
+        input.addEventListener('change', () => saveRowChanges(input));
+        cell.appendChild(input);
     } else if (headerText === 'Status') {
-        cell.appendChild(createSelect(['To-do', 'In Progress', 'Done']));
+        const select = createSelect(['To-do', 'In Progress', 'Done']);
+        select.addEventListener('change', () => saveRowChanges(select));
+        cell.appendChild(select);
     } else if (headerText === 'Key Persons') {
-        cell.appendChild(createInput('email'));
+        const input = createInput('email');
+        input.addEventListener('change', () => saveRowChanges(input));
+        cell.appendChild(input);
     } else if (headerText === 'Upload File') {
         const fileInput = createInput('file');
         fileInput.addEventListener('change', handleFileUpload);
         cell.appendChild(fileInput);
     } else {
         cell.contentEditable = true;
+        cell.addEventListener('blur', () => saveRowChanges(cell));
     }
 
     return cell;
 }
+
+
 
 // Function to Create Date Cell
 function createDateCell() {
