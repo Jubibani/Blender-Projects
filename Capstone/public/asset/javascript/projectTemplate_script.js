@@ -8,6 +8,7 @@ import {
     addDoc, 
     getDocs, 
     updateDoc, 
+    deleteDoc,
     query, 
     where 
 } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore.js";
@@ -180,6 +181,7 @@ function createTable(container, groupId) {
 }
 
 // Function to Create Header Row
+//? Handles the Firebase Deletion [group]
 function createHeaderRow(table, groupId) {
     const headerRow = document.createElement('tr');
 
@@ -194,18 +196,31 @@ function createHeaderRow(table, groupId) {
     dropdownMenu.className = 'dropdown-menu';
     dropdownMenu.style.display = 'none';
 
-    // Add "Delete Group" Option
+    // Add "Delete Group" Option with proper event handling
     const deleteGroupOption = document.createElement('div');
     deleteGroupOption.textContent = 'Delete Group';
     deleteGroupOption.className = 'dropdown-item';
-    deleteGroupOption.addEventListener('click', () => {
-        const groupContainer = document.querySelector('.group-container'); // Reference the container
-        const addItemButton = document.querySelector(`.add-item-btn[data-id="${groupId}"]`); // Find the associated "Add Item" button
-        if (addItemButton) addItemButton.remove(); // Remove the button
-        groupContainer.removeChild(table); // Remove the table from the container
+    
+    deleteGroupOption.addEventListener('click', async (e) => {
+        e.stopPropagation(); // Prevent event bubbling
+        try {
+            await deleteGroup(groupId);
+            const groupContainer = document.querySelector('.group-container');
+            const addItemButton = document.querySelector(`.add-item-btn[data-id="${groupId}"]`);
+            if (addItemButton) {
+                addItemButton.remove();
+            }
+            if (table && table.parentNode) {
+                table.parentNode.removeChild(table);
+            }
+            dropdownMenu.style.display = 'none';
+        } catch (error) {
+            console.error('Error deleting group:', error);
+        }
     });
 
-    dropdownBtn.addEventListener('click', () => {
+    dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent event bubbling
         dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'block' : 'none';
     });
 
@@ -241,6 +256,7 @@ function createHeaderRow(table, groupId) {
     return headerRow;
 }
 
+//? Ya'll forgot to fix the add Item and Delete Group Button.
 function createActionCell(row, groupId) {
     const cell = document.createElement('td');
     cell.className = 'fixed-column';
@@ -257,9 +273,12 @@ function createActionCell(row, groupId) {
     deleteOption.textContent = 'Delete Row';
     deleteOption.className = 'dropdown-item';
     deleteOption.addEventListener('click', async () => {
-        row.remove();
-        const rowData = {}; // Define or pass the correct rowData structure
-        await deleteRow(groupId, rowData);
+        //! careful here, baka ma fall ka kay aila
+        const rowId = row.dataset.rowId;
+        if (rowId) {
+            await deleteRow(groupId, rowId);
+            row.remove();
+        }
     });
 
     dropdownBtn.addEventListener('click', () => {
@@ -352,6 +371,7 @@ function addTimelineColumns(table, headerRow) {
 
 // Function to Add a Row
 //? never actually called when adding new rows [1]
+// Function to Add a Row
 async function addRow(table, headerRow) {
     const row = document.createElement('tr');
     const groupId = table.dataset.id;
@@ -366,7 +386,7 @@ async function addRow(table, headerRow) {
         let cell;
 
         if (index === 0) {
-            cell = createActionCell(row);
+            cell = createActionCell(row, groupId); // Pass groupId to createActionCell
         } else if (headerText === 'Start Date' || headerText === 'Due Date') {
             cell = document.createElement('td');
             const dateInput = document.createElement('input');
@@ -387,10 +407,10 @@ async function addRow(table, headerRow) {
     });
 
     table.appendChild(row);
-    await saveRowData(groupId, rowData);
+    const docRef = await saveRowData(groupId, rowData);
+    row.dataset.rowId = docRef.id; // Store the row ID for later use
     return row;
 }
-
 
 //? First, keep  saveRow function to collect the data [2]
 function saveRow(groupId, row) {
@@ -543,22 +563,38 @@ async function uploadFile(file) {
 }
 
 
+//? surprisingly, most of it was logged. [Updated]
 async function deleteGroup(groupId) {
     try {
-        await db.collection('groups').doc(groupId).delete();
-        console.log('Group deleted:', groupId);
+        console.log('Deleting group:', groupId);
+        // First, delete all rows in the group's contents subcollection
+        const groupRef = doc(db, 'groups', groupId);
+        const contentsRef = collection(groupRef, 'contents');
+        const contentsSnapshot = await getDocs(contentsRef);
+        
+        const deletionPromises = contentsSnapshot.docs.map(doc => 
+            deleteDoc(doc.ref)
+        );
+        await Promise.all(deletionPromises);
+
+        // Then delete the group document itself
+        await deleteDoc(groupRef);
+        console.log('Group and all contents deleted:', groupId);
     } catch (e) {
         console.error('Error deleting group:', e);
+        throw e;
     }
 }
 
 async function deleteRow(groupId, rowId) {
     try {
-        const groupRef = db.collection('groups').doc(groupId);
-        await groupRef.collection('contents').doc(rowId).delete();
-        console.log('Row deleted from subcollection:', rowId);
+        const groupRef = doc(db, 'groups', groupId);
+        const rowRef = doc(collection(groupRef, 'contents'), rowId);
+        await deleteDoc(rowRef);
+        console.log('Row deleted:', rowId);
     } catch (e) {
         console.error('Error deleting row:', e);
+        throw e;
     }
 }
 
